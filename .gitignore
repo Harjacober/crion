@@ -1,0 +1,5 @@
+/.vscode/
+/build/
+crion
+/main.dSYM/
+.DS_Store
