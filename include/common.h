@@ -11,5 +11,6 @@
 typedef enum {
     VAL_BOOL,
     VAL_NUMBER,
-    VAL_NIL
+    VAL_NIL,
+    VAL_OBJ
 } ValueType;

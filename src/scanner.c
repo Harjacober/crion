@@ -27,7 +27,7 @@ static Token errorToken(const char* message) {
 }
 
 static bool isAtEnd() {
-    return scanner.current[0] == '\0';
+    return *scanner.current == '\0';
 }
 
 static char advance() {
@@ -96,13 +96,13 @@ static void skipWhiteSpace() {
 }
 
 static Token string() {
-    while (peek() != '"' && !isAtEnd) {
+    while (peek() != '"' && !isAtEnd()) {
         if (peek() == '\n') {
             scanner.line++;
         }
         advance();
     }
-    if (isAtEnd) {
+    if (isAtEnd()) {
         return errorToken("Unterminated string.");
     }
     // move past the closing quote

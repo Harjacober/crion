@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "value.h"
 #include "memory.h"
+#include "object.h"
 
 void initValueArray(ValueArray* array) {
     array->count = 0;
@@ -24,6 +25,16 @@ void freeValueArray(ValueArray* array) {
     initValueArray(array);
 }
 
+void printObject(Value value) {
+    switch (OBJ_TYPE(value)){
+        case OBJ_STRING:
+            printf("%s", AS_CSTRING(value));
+            break;
+        default:
+            break;
+    }
+}
+
 void printValue(Value value) {
     int type = value.type;
     switch (type) {
@@ -35,6 +46,9 @@ void printValue(Value value) {
             break;
         case VAL_NIL:
             printf("nil");
+            break;
+        case VAL_OBJ:
+            printObject(value);
             break;
     }
 }

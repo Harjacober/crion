@@ -75,7 +75,7 @@ int disassembleInstruction(Chunk* chunk, int offset) {
         case OP_OR:
             return simpleInstruction("OP_OR", offset);
         case OP_EQUALS:
-            return simpleInstruction("OP_NOT", offset);
+            return simpleInstruction("OP_EQUALS", offset);
         case OP_GREATER:
             return simpleInstruction("OP_GREATER", offset);
         case OP_LESS:
