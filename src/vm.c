@@ -23,21 +23,6 @@ static Value readLongConstant() {
     #undef READ_BYTE
 }
 
-static bool compareStrings(ObjString* a, ObjString* b) {
-    return a->length == b->length && memcmp(a->chars, b->chars, a->length) == 0;
-}
-
-static bool objectEquals(Obj* a, Obj* b) {
-    if (a->type != b->type) {
-        return false;
-    }
-    switch (a->type){
-        case OBJ_STRING:
-            return compareStrings((ObjString*)a, (ObjString*)b);
-        default:
-            return false;
-    }
-}
 
 static void resetStack() {
     vm.stackTop = vm.stack;
@@ -54,19 +39,6 @@ static void runtimeError(const char* format, ...) {
     int line = vm.chunk->lines.lines[instruction];
     fprintf(stderr, "[Line %d] in script\n", line);
     resetStack(vm);
-}
-
-static bool valuesEqual(Value a, Value b) {
-    if (a.type != b.type) {
-        return false;
-    }
-    switch (a.type) {
-        case VAL_BOOL: return AS_C_BOOL(a) == AS_C_BOOL(b); break;
-        case VAL_NUMBER: return AS_C_NUMBER(a) == AS_C_NUMBER(b); break;
-        case VAL_NIL: return true;
-        case VAL_OBJ: return objectEquals(AS_OBJ(a), AS_OBJ(b));
-        default: return false;
-    }
 }
 
 static Value peek(int distance) {
@@ -153,7 +125,7 @@ static InterpretResult run() {
             case OP_CONSTANT_LONG: push(readLongConstant(vm)); break;
             case OP_TRUE: push(TO_BOOL_VAL(true)); break;
             case OP_FALSE: push(TO_BOOL_VAL(false)); break;
-            case OP_NIL: push(TO_NIL_VAL); break;
+            case OP_NIL: push(NIL_VAL); break;
             case OP_NEGATE: {
                 // modify the stack directly instead of pop/push back.
                 set(0, TO_NUMBER_VAL(-AS_C_NUMBER(peek(0))));
@@ -214,6 +186,7 @@ void initVM() {
     vm.ip = NULL;
     resetStack(vm);
     vm.objects = NULL;
+    initTable(&vm.strings);
 }
 
 void freeVM() {

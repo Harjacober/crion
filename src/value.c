@@ -52,3 +52,16 @@ void printValue(Value value) {
             break;
     }
 }
+
+bool valuesEqual(Value a, Value b) {
+    if (a.type != b.type) {
+        return false;
+    }
+    switch (a.type) {
+        case VAL_BOOL: return AS_C_BOOL(a) == AS_C_BOOL(b); break;
+        case VAL_NUMBER: return AS_C_NUMBER(a) == AS_C_NUMBER(b); break;
+        case VAL_NIL: return true;
+        case VAL_OBJ: return AS_OBJ(a) == AS_OBJ(b);
+        default: return false;
+    }
+}

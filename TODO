@@ -1,2 +1,4 @@
 ref 14.3 -> implement reallocate without calling malloc, realloc or free
 ref 15.2 -> grow the vm stack as needed instead of using a fixed size
+ref 19.1 -> use flexible array members technique to store ObjString and its chars
+ref 19.2 -> fix inefficient copy of ObjString characters
