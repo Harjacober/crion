@@ -38,7 +38,7 @@ static void runtimeError(const char* format, ...) {
     size_t instruction = vm.ip - vm.chunk->code - 1;
     int line = vm.chunk->lines.lines[instruction];
     fprintf(stderr, "[Line %d] in script\n", line);
-    resetStack(vm);
+    resetStack();
 }
 
 static Value peek(int distance) {
@@ -123,7 +123,7 @@ static InterpretResult run() {
         uint8_t instruction;
         switch (instruction = READ_BYTE()) {
             case OP_CONSTANT: push(READ_CONSTANT()); break;
-            case OP_CONSTANT_LONG: push(readLongConstant(vm)); break;
+            case OP_CONSTANT_LONG: push(readLongConstant()); break;
             case OP_TRUE: push(TO_BOOL_VAL(true)); break;
             case OP_FALSE: push(TO_BOOL_VAL(false)); break;
             case OP_NIL: push(NIL_VAL); break;
@@ -134,7 +134,7 @@ static InterpretResult run() {
             }
             case OP_ADD: {
                 if (IS_STRING(peek(0)) && IS_STRING(peek(1))) {
-                    concatenate(vm);
+                    concatenate();
                 } else {
                     BINARY_OP(+, TO_NUMBER_VAL);
                 } 
@@ -143,7 +143,7 @@ static InterpretResult run() {
             case OP_SUBTRACT: BINARY_OP(-, TO_NUMBER_VAL); break;
             case OP_MULTIPLY: BINARY_OP(*, TO_NUMBER_VAL); break;
             case OP_DIVIDE: BINARY_OP(/, TO_NUMBER_VAL); break;
-            case OP_TERNARY: ternaryOp(vm);break;
+            case OP_TERNARY: ternaryOp();break;
             case OP_NOT: set(0, TO_BOOL_VAL(!(isTruthy(peek(0))))); break;
             case OP_AND: {
                 Value b = peek(0);
@@ -193,6 +193,20 @@ static InterpretResult run() {
                 break;
             }
             case OP_POP: pop(); break;
+            case OP_GET_LOCAL: {
+                // read the local variable value front the stack slot push it to the top of the stack
+                uint8_t slot = READ_BYTE();
+                push(vm.stack[slot]);
+                break;
+            }
+            case OP_SET_LOCAL: {
+                // update the local variable value at the slot position in the stack to the current values at the top of the stack
+                // we don't pop the value fromt the top of the stack because assignment is an expression and every expression produces a value.
+                // this is because we can have nested assignment expressions. e.g. var a = b = 4; evaluation of b = 4, will leave [4] on the stack so that it can be assigend to a.
+                uint8_t slot = READ_BYTE();
+                vm.stack[slot] = peek(0);
+                break;
+            }
             case OP_PRINT: {
                 printValue(pop());
                 printf("\n");
@@ -214,7 +228,7 @@ static InterpretResult run() {
 void initVM() {
     vm.chunk = NULL;
     vm.ip = NULL;
-    resetStack(vm);
+    resetStack();
     vm.objects = NULL;
     initTable(&vm.strings);
     initTable(&vm.globals);
@@ -251,7 +265,7 @@ InterpretResult interpret(char* source) {
     vm.chunk = &chunk;
     vm.ip =  vm.chunk->code;
 
-    InterpretResult result = run(vm);
+    InterpretResult result = run();
     
     freeChunk(&chunk);
 

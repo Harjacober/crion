@@ -82,7 +82,7 @@ typedef struct {
 } Local;
 
 typedef struct {
-    Local locals[UINT8_COUNT];
+    Local locals[MAX_LOCAL_VARIABLE];
     int localCount;
     int scopeDepth;
 } Compiler;
@@ -140,8 +140,14 @@ static void beginScope() {
 
 static void endScope() {
     current->scopeDepth--;
+    while (current->localCount > 0 && 
+        current->locals[current->localCount - 1].depth > current->scopeDepth) {
+        // remove the local variable from the stack top and decrements the size of the locals array
+        emitByte(OP_POP);
+        current->localCount--;
+    }
+    
 }
-
 
 static void errorAt(Token* token, const char* message) {
     if (parser.panicMode) {
@@ -161,6 +167,10 @@ static void errorAt(Token* token, const char* message) {
 
     fprintf(stderr, ": %s\n", message);
     parser.hadError = true;
+}
+
+static void error(const char* message) {
+    errorAt(&parser.previous, message);
 }
 
 static void advance() {
@@ -219,13 +229,77 @@ static uint8_t identifierConstant(Token* name) {
     return addConstant(currentChunk(), TO_OBJ_VAL(copyString(name->start, name->length)));
 }
 
+static bool identifierEquals(Token* a, Token* b) {
+    if (a->length != b->length) {
+        return false;
+    }
+    return memcmp(a->start, b->start, a->length) == 0;
+}
+
+static int resolveLocal(Compiler* compiler, Token* name) {
+    // walk the array backwards. i.e. start from the innermost scope, to ensure inner local variables shadow locals with the same name in surrounding scopes.
+    for (int i = compiler->localCount - 1; i >= 0; i--) {
+        Local* local = &compiler->locals[i];
+        if (identifierEquals(name, &local->name)) {
+            // this index will be the exact index the value of this local will be on the VM stack at runtime.
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+static void addLocal(Token name) {
+    // the locals arrays will hold all variables declared within a scope and all its nested scopes.
+    // so we could have [var a - scope 1, var b - scope 1, var a - scope 2, var b - scope 3, var c - scope 3] etc.
+
+    if (current->localCount == MAX_LOCAL_VARIABLE) {
+        error("Too many local variables in a function.");
+        return;
+    }
+
+    Local* local = &current->locals[current->localCount++];
+    local->name = name;
+    local->depth = current->scopeDepth;
+}
+
+static void declareLocalVariable() {
+    Token* name = &parser.previous;
+
+    // two variables with the same name are not allowed within the same scope
+    for (int i = current->localCount - 1; i >= 0; i--) {
+        Local* local = &current->locals[i];
+        if (local->depth != -1 && local->depth < current->scopeDepth) {
+            break;
+        }
+
+        if (identifierEquals(name, &local->name)) {
+            error("Variable with this name is already defined in this scope");
+        }
+    }
+
+    addLocal(*name);
+}
+
 static void namedVariable(Token name, bool canAssign) {
-    uint8_t arg = identifierConstant(&name);
+    uint8_t getOp, setOp;
+    int arg = resolveLocal(current, &name);
+    if (arg != -1) {
+        // found a local varibale
+        getOp = OP_GET_LOCAL;
+        setOp = OP_SET_LOCAL;
+    } else {
+        // no local variable found, we assume it is global
+        arg = identifierConstant(&name);
+        getOp = OP_GET_GLOBAL;
+        setOp = OP_SET_GLOBAL;
+    }
+
     if (canAssign && match(TOKEN_EQUAL)) {
         expression();
-        emitBytes(OP_SET_GLOBAL, arg);
+        emitBytes(setOp, (uint8_t)arg);
     } else {
-        emitBytes(OP_GET_GLOBAL, arg);
+        emitBytes(getOp, (uint8_t)arg);
     }
 }
 
@@ -451,17 +525,22 @@ static void statement() {
 static uint8_t parseVariable(const char* errorMessage) {
     consume(TOKEN_IDENTIFIER, errorMessage);
 
-    declareVariable();
     if (current->scopeDepth > 0) {
         // we are currently in a scope, hence this is a local variable declaration.
         // local variables are not looked up by name at runtime, 
-        // hence we don't add local variables to the chunk constant, we simply return a dummy.
+        // hence we don't add local variables to the chunk constant, we declare it separatelt and simply return a dummy constant index.
+        declareLocalVariable();
         return 0;
     }
     return identifierConstant(&parser.previous);
 }
 
 static void defineVariable(uint8_t global) {
+    if (current->scopeDepth > 0) {
+        // Again, we don't emity any special instruction to store a local variable. 
+        // Since the initializer has just finish executing at this point, the value is sitting right at the top of the stack.
+        return;
+    }
     emitBytes(OP_DEFINE_GLOBAL, global);
 }
 
