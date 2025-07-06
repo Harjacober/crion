@@ -25,6 +25,11 @@ typedef enum {
     OP_LESS,
     OP_GREATER_EQAULS,
     OP_LESS_EQUALS,
+    OP_DEFINE_GLOBAL,
+    OP_GET_GLOBAL,
+    OP_SET_GLOBAL,
+    OP_PRINT,
+    OP_POP,
     OP_RETURN,
 } OpCode;
 

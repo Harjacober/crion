@@ -67,10 +67,10 @@ static bool isTruthy(Value value) {
 }
 
 static void ternaryOp() {
-    Value b = peek(0);
-    Value a = peek(1);
+    Value falseValue = peek(0);
+    Value trueValue = peek(1);
     Value condition = peek(2);
-    isTruthy(condition) > 0 ? setAndMove(2, a) : setAndMove(2, b);
+    isTruthy(condition) > 0 ? setAndMove(2, trueValue) : setAndMove(2, falseValue);
 }
 
 static void concatenate() {
@@ -88,6 +88,7 @@ static void concatenate() {
 static InterpretResult run() {
     #define READ_BYTE() (*vm.ip++)
     #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
+    #define READ_STRING()   (AS_STRING(READ_CONSTANT()))
     //This approach modifiy the stack top directly and only decrements it once
     #define BINARY_OP(op, valueConverter) \
         do { \
@@ -166,9 +167,38 @@ static InterpretResult run() {
             case OP_LESS: BINARY_OP(<, TO_BOOL_VAL); break;
             case OP_GREATER_EQAULS: BINARY_OP(>=, TO_BOOL_VAL); break;
             case OP_LESS_EQUALS: BINARY_OP(<=, TO_BOOL_VAL); break;
-            case OP_RETURN: {
-                printValue(pop(vm));
+            case OP_DEFINE_GLOBAL: {
+                ObjString* varName =  READ_STRING();
+                tableSet(&vm.globals, varName, peek(0));
+                pop();
+                break;
+            }
+            case OP_GET_GLOBAL: {
+                ObjString* varName =  READ_STRING();
+                Value value;
+                if (!tableGet(&vm.globals, varName, &value)) {
+                    runtimeError("Undefined variable '%s'.", varName->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                push(value);
+                break;
+            }
+            case OP_SET_GLOBAL: {
+                ObjString* name =  READ_STRING();
+                if (tableSet(&vm.globals, name, peek(0))) {
+                    tableDelete(&vm.globals, name);
+                    runtimeError("Undeclared variable '%s'.", name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+            case OP_POP: pop(); break;
+            case OP_PRINT: {
+                printValue(pop());
                 printf("\n");
+                break;;
+            }
+            case OP_RETURN: {
                 return INTERPRET_OK;
             }
             default:
@@ -187,6 +217,7 @@ void initVM() {
     resetStack(vm);
     vm.objects = NULL;
     initTable(&vm.strings);
+    initTable(&vm.globals);
 }
 
 void freeVM() {
@@ -226,3 +257,7 @@ InterpretResult interpret(char* source) {
 
     return result;
 }
+
+#undef READ_CONSTANT
+#undef READ_STRING
+#undef BINARY_OP

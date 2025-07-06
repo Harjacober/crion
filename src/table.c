@@ -38,7 +38,9 @@ static void adjustCapacity(Table* table, int capacity) {
         entries[i].value = NIL_VAL;
     }
 
+    printf("cap: %d\n", table->capacity);
     for (int i = 0; i < table->capacity; i++) {
+        printf("table set here?\n");
         Entry* oldEntry = &table->entries[i];
     
         if (oldEntry->key == NULL) {
@@ -68,6 +70,7 @@ void freeTable(Table* table) {
 } 
 
 bool tableSet(Table* table, ObjString* key, Value value) {
+    printf("capa: %d\n", table->capacity);
     if (table->count + 1 > table->capacity * LOAD_FACTOR) {
         int capacity = GROW_CAPACITY(table->capacity);
         adjustCapacity(table, capacity);
